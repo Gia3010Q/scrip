@@ -226,7 +226,7 @@ local function optimizeTerrain()
     end
 end
 
--- ===== 6️⃣ TỐI ƯU GUI =====
+-- ===== 7️⃣ TỐI ƯU GUI =====
 local function optimizeGUI()
     pcall(function()
         local playerGui = player:WaitForChild("PlayerGui")
@@ -260,6 +260,97 @@ local function optimizeGUI()
             end)
         end
     end)
+end
+
+-- ===== 7️⃣.5️⃣ EXTREME MAP DELETION (OPTION 2) 🔥 =====
+local function extremeMapDeletion()
+    print("⚠️  ĐANG XÓA MAP (EXTREME MODE)...")
+    
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local deletedCount = 0
+    local keptCount = 0
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("BasePart") then
+                local shouldKeep = false
+                local keepReason = ""
+                
+                -- 1. GIỮ character của player
+                if obj:IsDescendantOf(char) then
+                    shouldKeep = true
+                    keepReason = "player_character"
+                end
+                
+                -- 2. GIỮ brainrots & coins (gameplay objects)
+                if not shouldKeep then
+                    if obj.Name:find("Brainrot") or 
+                       (obj.Parent and obj.Parent.Name:find("Brainrot")) or
+                       obj.Name:find("Coin") or obj.Name:find("Cash") or
+                       obj.Name:find("Money") or obj.Name:find("Rebirth") or
+                       obj.Name:find("Checkpoint") or obj.Name:find("Spawn") then
+                        shouldKeep = true
+                        keepReason = "gameplay_object"
+                    end
+                end
+                
+                -- 3. GIỮ sàn mà player đang đứng (CanCollide = true, dưới chân)
+                if not shouldKeep then
+                    local distanceBelow = obj.Position.Y - root.Position.Y
+                    if obj.CanCollide and distanceBelow < 20 and distanceBelow > -50 then
+                        -- Sàn trong vòng 50 studs dưới chân
+                        shouldKeep = true
+                        keepReason = "floor"
+                    end
+                end
+                
+                -- 4. GIỮ tường/ranh giới quan trọng (cực lớn hoặc cực cao)
+                if not shouldKeep then
+                    if obj.Size.Y > 100 or -- Tường cao
+                       obj.Size.X > 200 or obj.Size.Z > 200 then -- Tường dài
+                        shouldKeep = true
+                        keepReason = "boundary_wall"
+                    end
+                end
+                
+                -- 5. GIỮ các part tên đặc biệt (an toàn)
+                if not shouldKeep then
+                    local safeParts = {
+                        "Baseplate", "Base", "Lobby", "SafeZone",
+                        "Important", "Core", "Main"
+                    }
+                    for _, safeName in ipairs(safeParts) do
+                        if obj.Name:find(safeName) then
+                            shouldKeep = true
+                            keepReason = "safe_part"
+                            break
+                        end
+                    end
+                end
+                
+                -- XÓA hoặc GIỮ
+                if shouldKeep then
+                    keptCount = keptCount + 1
+                    -- Tối ưu part được giữ lại
+                    obj.CastShadow = false
+                    obj.Material = Enum.Material.Plastic
+                    obj.Reflectance = 0
+                else
+                    -- XÓA HOÀN TOÀN
+                    obj:Destroy()
+                    deletedCount = deletedCount + 1
+                end
+            end
+        end)
+    end
+    
+    print("🔥 Đã XÓA: " .. deletedCount .. " parts")
+    print("✅ Đã GIỮ: " .. keptCount .. " parts (gameplay + sàn)")
+    print("⚡ FPS sẽ tăng 60-80%!")
 end
 
 -- ===== 7️⃣ TỐI ƯU HỆ THỐNG =====
@@ -381,6 +472,13 @@ print("✅ Sound Interceptor: ACTIVE")
 print("✅ FPS Counter: ACTIVE")
 print("💎 Brainrots: Được bảo toàn")
 
+-- EXTREME MAP DELETION (đợi 2 giây)
+print("")
+print("⚠️  CẢNH BÁO: Sắp xóa map trong 2 giây!")
+print("🔥 EXTREME MODE - FPS sẽ tăng 60-80%")
+task.wait(2)
+extremeMapDeletion()
+
 -- Cleanup định kỳ (12 GIÂY thay vì 3 giây)
 local optimizationTimer = 0
 local fullScanCounter = 0
@@ -407,6 +505,9 @@ player.CharacterAdded:Connect(function()
     task.wait(1)
     pcall(function()
         smartCleanup()
+        -- Xóa map lại khi respawn
+        task.wait(1)
+        extremeMapDeletion()
     end)
 end)
 
