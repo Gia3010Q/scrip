@@ -9,12 +9,12 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
--- ===== CẤU HÌNH AN TOÀN =====
+-- ===== CẤU HÌNH TỐI ƯU TỐI ĐA =====
 local Config = {
-    RenderDistance = 350,      -- Khoảng cách render hợp lý
-    CleanupDistance = 800,     -- Khoảng cách cleanup
-    UpdateRate = 12,           -- 12 giây giữa mỗi lần tối ưu (GIẢM TẦN SUẤT)
-    ChunkSize = 50,            -- Xử lý 50 objects mỗi frame
+    RenderDistance = 250,      -- GIẢM xuống 250 studs (từ 350)
+    CleanupDistance = 600,     -- GIẢM xuống 600 studs (từ 800)
+    UpdateRate = 10,           -- Tăng tần suất xuống 10s (từ 12s)
+    ChunkSize = 30,            -- Giảm xuống 30 để mượt hơn (từ 50)
     
     -- Tối ưu an toàn
     KeepBrainrots = true,      -- Giữ lại brainrot
@@ -27,14 +27,18 @@ local soundsToDelete = {}
 local effectsToDelete = {}
 local lastFullScan = 0
 
--- ===== 1️⃣ XÓA ÂM THANH & HIỆU ỨNG (CHẠY 1 LẦN) =====
+-- ===== 1️⃣ XÓA HOÀN TOÀN ÂM THANH & HIỆU ỨNG (QUÉT TẤT CẢ SERVICES) =====
 local function initialSoundEffectCleanup()
-    print("🔧 Đang dọn dẹp âm thanh và hiệu ứng...")
+
     
     -- Tắt SoundService
     pcall(function()
         local soundService = game:GetService("SoundService")
         soundService.Volume = 0
+        soundService.AmbientReverb = Enum.ReverbType.NoReverb
+        soundService.DistanceFactor = 1
+        soundService.DopplerScale = 0
+        soundService.RolloffScale = 0
         
         -- Xóa sounds trong SoundService
         for _, sound in ipairs(soundService:GetChildren()) do
@@ -44,38 +48,56 @@ local function initialSoundEffectCleanup()
         end
     end)
     
-    -- Xóa sounds và effects trong workspace (1 LẦN DUY NHẤT)
     local count = 0
-    for _, obj in ipairs(Workspace:GetDescendants()) do
+    
+    -- QUÉT TẤT CẢ SERVICES
+    local servicesToScan = {
+        game:GetService("Workspace"),
+        game:GetService("ReplicatedStorage"),
+        game:GetService("Lighting"),
+        player:WaitForChild("PlayerGui"),
+        player:WaitForChild("PlayerScripts"),
+        player:WaitForChild("Backpack")
+    }
+    
+    -- Thêm ServerStorage nếu có quyền
+    pcall(function()
+        table.insert(servicesToScan, game:GetService("ServerStorage"))
+    end)
+    
+    for _, service in ipairs(servicesToScan) do
         pcall(function()
-            if obj:IsA("Sound") then
-                obj:Destroy()
-                count = count + 1
-            elseif obj:IsA("ParticleEmitter") then
-                if obj.Name:find("Brainrot") then
-                    -- Giữ brainrot nhưng giảm nhẹ
-                    obj.Rate = math.min(obj.Rate, 8)
-                else
-                    obj:Destroy()
-                    count = count + 1
-                end
-            elseif obj:IsA("Trail") or obj:IsA("Beam") or 
-                   obj:IsA("Smoke") or obj:IsA("Fire") or
-                   obj:IsA("Sparkles") then
-                obj:Destroy()
-                count = count + 1
+            for _, obj in ipairs(service:GetDescendants()) do
+                pcall(function()
+                    if obj:IsA("Sound") then
+                        obj:Destroy()
+                        count = count + 1
+                    elseif obj:IsA("ParticleEmitter") then
+                        if obj.Name:find("Brainrot") then
+                            obj.Rate = math.min(obj.Rate, 8)
+                        else
+                            obj:Destroy()
+                            count = count + 1
+                        end
+                    elseif obj:IsA("Trail") or obj:IsA("Beam") or 
+                           obj:IsA("Smoke") or obj:IsA("Fire") or
+                           obj:IsA("Sparkles") then
+                        obj:Destroy()
+                        count = count + 1
+                    end
+                end)
             end
         end)
     end
     
-    print("✅ Đã xóa " .. count .. " sounds/effects")
+
 end
 
 -- ===== 2️⃣ EVENT-DRIVEN: BẮT SOUNDS MỚI =====
 local function setupSoundInterceptor()
     -- Bắt sounds mới NGAY KHI SPAWN thay vì polling
     Workspace.DescendantAdded:Connect(function(obj)
-        task.wait(0.1) -- Đợi object load xong
+        task.wait(0.1)
         pcall(function()
             if obj:IsA("Sound") then
                 obj:Destroy()
@@ -88,7 +110,40 @@ local function setupSoundInterceptor()
         end)
     end)
     
-    print("✅ Đã kích hoạt Sound Interceptor (event-driven)")
+
+end
+
+-- ===== 2️⃣.5️⃣ AGGRESSIVE SOUND DESTROYER (CONTINUOUS) =====
+local function startAggressiveSoundDestroyer()
+    -- Chạy LIÊN TỤC mỗi frame để xóa sounds
+    RunService.Heartbeat:Connect(function()
+        pcall(function()
+            -- Xóa sounds trong SoundService
+            local soundService = game:GetService("SoundService")
+            soundService.Volume = 0
+            for _, sound in ipairs(soundService:GetChildren()) do
+                if sound:IsA("Sound") then
+                    pcall(function() sound:Destroy() end)
+                end
+            end
+            
+            -- Xóa sounds trong Workspace
+            for _, sound in ipairs(Workspace:GetDescendants()) do
+                if sound:IsA("Sound") then
+                    pcall(function() sound:Destroy() end)
+                end
+            end
+            
+            -- Xóa sounds trong PlayerGui
+            for _, sound in ipairs(player.PlayerGui:GetDescendants()) do
+                if sound:IsA("Sound") then
+                    pcall(function() sound:Destroy() end)
+                end
+            end
+        end)
+    end)
+    
+
 end
 
 -- ===== 3️⃣ TỐI ƯU ÁNH SÁNG =====
@@ -121,7 +176,7 @@ local function optimizeLighting()
     end
 end
 
--- ===== 4️⃣ SMART CLEANUP (CHUNK-BASED, GIẢM TẦN SUẤT) =====
+-- ===== 4️⃣ SMART CLEANUP (EXTREME OPTIMIZATION) =====
 local cleanupCycle = 0
 local descendantsCache = {}
 local cacheExpiry = 0
@@ -168,33 +223,42 @@ local function smartCleanup()
                 end
             end
             
-            -- Tối ưu objects không quan trọng
+            -- Tối ưu objects không quan trọng EXTREME
             if not isImportant and obj:IsA("BasePart") then
                 local distance = (obj.Position - rootPos).Magnitude
                 
-                if distance > Config.CleanupDistance then
-                    obj.Transparency = math.min(obj.Transparency + 0.3, 0.9)
+                if distance > 1000 then
+                    -- SIÊU XA: XÓA HOÀN TOÀN để giải phóng RAM
+                    obj:Destroy()
+                elseif distance > Config.CleanupDistance then
+                    -- RẤT XA: Làm mờ gần như hoàn toàn
+                    obj.Transparency = 0.95
                     obj.CanCollide = false
                     obj.CastShadow = false
                 elseif distance > Config.RenderDistance then
+                    -- XA: Tối ưu mạnh
+                    obj.Transparency = math.min(obj.Transparency + 0.5, 0.85)
+                    obj.CanCollide = false
                     obj.CastShadow = false
                     obj.Material = Enum.Material.Plastic
                 else
+                    -- GẦN: Tối ưu nhẹ
                     obj.CastShadow = false
                     obj.Reflectance = 0
                 end
                 
-                -- Xóa texture vật xa (mỗi 5 chu kỳ)
-                if cleanupCycle % 5 == 0 and obj:IsA("MeshPart") and distance > 300 then
+                -- Xóa texture vật xa (mỗi 3 chu kỳ thay vì 5)
+                if cleanupCycle % 3 == 0 and obj:IsA("MeshPart") and distance > 200 then
                     obj.TextureID = ""
+                    obj.RenderFidelity = Enum.RenderFidelity.Performance
                 end
             end
             
-            -- Xóa decal/texture xa
+            -- Xóa decal/texture xa (giảm khoảng cách)
             if (obj:IsA("Decal") or obj:IsA("Texture")) and 
                obj.Parent and obj.Parent:IsA("BasePart") then
                 local distance = (obj.Parent.Position - rootPos).Magnitude
-                if distance > 600 then
+                if distance > 400 then  -- Giảm từ 600
                     obj:Destroy()
                 end
             end
@@ -262,107 +326,106 @@ local function optimizeGUI()
     end)
 end
 
--- ===== 7️⃣.5️⃣ EXTREME MAP DELETION (OPTION 2) 🔥 =====
-local function extremeMapDeletion()
-    print("⚠️  ĐANG XÓA MAP (EXTREME MODE)...")
+-- ===== 7️⃣.5️⃣ EXTREME MAP BLACKOUT (OPTION 2) 🔥 =====
+local function extremeMapBlackout()
+
     
     local char = player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    local deletedCount = 0
+    local blackedCount = 0
     local keptCount = 0
     
     for _, obj in ipairs(Workspace:GetDescendants()) do
         pcall(function()
             if obj:IsA("BasePart") then
-                local shouldKeep = false
-                local keepReason = ""
+                local isGameplay = false
                 
-                -- 1. GIỮ character của player
-                if obj:IsDescendantOf(char) then
-                    shouldKeep = true
-                    keepReason = "player_character"
-                end
-                
-                -- 2. GIỮ brainrots & coins (gameplay objects)
-                if not shouldKeep then
-                    if obj.Name:find("Brainrot") or 
-                       (obj.Parent and obj.Parent.Name:find("Brainrot")) or
-                       obj.Name:find("Coin") or obj.Name:find("Cash") or
-                       obj.Name:find("Money") or obj.Name:find("Rebirth") or
-                       obj.Name:find("Checkpoint") or obj.Name:find("Spawn") then
-                        shouldKeep = true
-                        keepReason = "gameplay_object"
-                    end
-                end
-                
-                -- 3. GIỮ sàn mà player đang đứng (CanCollide = true, dưới chân)
-                if not shouldKeep then
-                    local distanceBelow = obj.Position.Y - root.Position.Y
-                    if obj.CanCollide and distanceBelow < 20 and distanceBelow > -50 then
-                        -- Sàn trong vòng 50 studs dưới chân
-                        shouldKeep = true
-                        keepReason = "floor"
-                    end
-                end
-                
-                -- 4. GIỮ tường/ranh giới quan trọng (cực lớn hoặc cực cao)
-                if not shouldKeep then
-                    if obj.Size.Y > 100 or -- Tường cao
-                       obj.Size.X > 200 or obj.Size.Z > 200 then -- Tường dài
-                        shouldKeep = true
-                        keepReason = "boundary_wall"
-                    end
-                end
-                
-                -- 5. GIỮ các part tên đặc biệt (an toàn)
-                if not shouldKeep then
-                    local safeParts = {
-                        "Baseplate", "Base", "Lobby", "SafeZone",
-                        "Important", "Core", "Main"
-                    }
-                    for _, safeName in ipairs(safeParts) do
-                        if obj.Name:find(safeName) then
-                            shouldKeep = true
-                            keepReason = "safe_part"
-                            break
-                        end
-                    end
-                end
-                
-                -- XÓA hoặc GIỮ
-                if shouldKeep then
+                -- Kiểm tra có phải gameplay object không
+                if obj:IsDescendantOf(char) or
+                   obj.Name:find("Brainrot") or 
+                   (obj.Parent and obj.Parent.Name:find("Brainrot")) or
+                   obj.Name:find("Coin") or obj.Name:find("Cash") or
+                   obj.Name:find("Money") or obj.Name:find("Rebirth") then
+                    isGameplay = true
                     keptCount = keptCount + 1
-                    -- Tối ưu part được giữ lại
+                end
+                
+                if isGameplay then
+                    -- Giữ nguyên màu của gameplay objects
                     obj.CastShadow = false
                     obj.Material = Enum.Material.Plastic
-                    obj.Reflectance = 0
                 else
-                    -- XÓA HOÀN TOÀN
-                    obj:Destroy()
-                    deletedCount = deletedCount + 1
+                    -- BIẾN THÀNH MÀU ĐEN
+                    obj.Color = Color3.fromRGB(0, 0, 0)
+                    obj.Material = Enum.Material.Plastic
+                    obj.Reflectance = 0
+                    obj.CastShadow = false
+                    obj.Transparency = 0
+                    
+                    -- Xóa textures
+                    if obj:IsA("MeshPart") then
+                        obj.TextureID = ""
+                    end
+                    
+                    blackedCount = blackedCount + 1
                 end
+            end
+            
+            -- Xóa Decals và Textures trên map
+            if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceGui") then
+                obj:Destroy()
             end
         end)
     end
     
-    print("🔥 Đã XÓA: " .. deletedCount .. " parts")
-    print("✅ Đã GIỮ: " .. keptCount .. " parts (gameplay + sàn)")
-    print("⚡ FPS sẽ tăng 60-80%!")
+    -- Làm đen sky
+    pcall(function()
+        local sky = Lighting:FindFirstChildOfClass("Sky")
+        if sky then
+            sky.SkyboxBk = ""
+            sky.SkyboxDn = ""
+            sky.SkyboxFt = ""
+            sky.SkyboxLf = ""
+            sky.SkyboxRt = ""
+            sky.SkyboxUp = ""
+        end
+        Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+        Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+    end)
 end
 
--- ===== 7️⃣ TỐI ƯU HỆ THỐNG =====
+-- ===== 7️⃣ TỐI ƯU HỆ THỐNG EXTREME =====
 local function optimizeSystem()
     pcall(function()
-        settings().Rendering.QualityLevel = 1
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
+    end)
+    
+    pcall(function()
+        -- Tắt physics không cần thiết
+        settings().Physics.AllowSleep = true
+        settings().Physics.ThrottleAdjustTime = 0
     end)
     
     pcall(function()
         local camera = Workspace.CurrentCamera
         if camera then
             camera.FieldOfView = 70
+        end
+    end)
+    
+    -- Tối ưu character rendering
+    pcall(function()
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CastShadow = false
+                end
+            end
         end
     end)
 end
@@ -445,18 +508,16 @@ local function createFPSCounter()
         end
     end)
     
-    print("✅ FPS Counter đã được tạo!")
+
 end
 
 -- ===== 🚀 KHỞI ĐỘNG HỆ THỐNG =====
-print("=========================================")
-print("🎮 SAFE LAG FIX - ESCAPE TSUNAMI")
-print("=========================================")
 
 -- Chạy tối ưu ban đầu
 initialSoundEffectCleanup()
 task.wait(0.5)
 setupSoundInterceptor()
+startAggressiveSoundDestroyer()
 task.wait(0.5)
 optimizeLighting()
 optimizeTerrain()
@@ -465,19 +526,11 @@ optimizeGUI()
 task.wait(0.3)
 createFPSCounter()
 
-print("✅ Ánh sáng & render: Đã tối ưu")
-print("✅ Terrain & water: Đã tối ưu")
-print("✅ GUI: Đã giảm tải")
-print("✅ Sound Interceptor: ACTIVE")
-print("✅ FPS Counter: ACTIVE")
-print("💎 Brainrots: Được bảo toàn")
 
--- EXTREME MAP DELETION (đợi 2 giây)
-print("")
-print("⚠️  CẢNH BÁO: Sắp xóa map trong 2 giây!")
-print("🔥 EXTREME MODE - FPS sẽ tăng 60-80%")
+
+-- EXTREME MAP BLACKOUT
 task.wait(2)
-extremeMapDeletion()
+extremeMapBlackout()
 
 -- Cleanup định kỳ (12 GIÂY thay vì 3 giây)
 local optimizationTimer = 0
@@ -505,15 +558,10 @@ player.CharacterAdded:Connect(function()
     task.wait(1)
     pcall(function()
         smartCleanup()
-        -- Xóa map lại khi respawn
+        -- Biến map thành đen lại khi respawn
         task.wait(1)
-        extremeMapDeletion()
+        extremeMapBlackout()
     end)
 end)
 
-print("=========================================")
-print("🎮 KHỞI ĐỘNG THÀNH CÔNG!")
-print("📊 Update Rate: mỗi 12 giây")
-print("🎯 Event-Driven Sound Removal: ACTIVE")
-print("⚡ Script an toàn cho 24/7!")
-print("=========================================")
+print("✅ SAFE LAG FIX - MAX FPS ACTIVE")
