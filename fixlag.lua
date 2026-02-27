@@ -26,10 +26,10 @@ local Config = {
 }
 
 -- ===== CACHE =====
--- (Không còn dùng descendantsCache toàn cục nữa — Spatial Query thay thế)
-local OverlapParams = OverlapParams.new()
-OverlapParams.FilterType = Enum.RaycastFilterType.Exclude
-OverlapParams.FilterDescendantsInstances = {}
+-- Đổi tên biến để không trùng với class name Roblox
+local spatialParams = OverlapParams.new()
+spatialParams.FilterType = Enum.RaycastFilterType.Exclude
+spatialParams.FilterDescendantsInstances = {}
 
 -- ===== 1️⃣ XÓA ÂM THANH - INITIAL CLEANUP =====
 local function killSound(obj)
@@ -92,11 +92,16 @@ end
 
 local function killEffect(obj)
     pcall(function()
+        -- Bảo vệ: chỉ xóa effects, KHÔNG bao giờ xóa BasePart (nếu map)
+        if obj:IsA("BasePart") then return end
         if obj:IsA("ParticleEmitter") and obj.Name:find("Brainrot") then
             obj.Rate = math.min(obj.Rate, 8)
             return
         end
-        obj:Destroy()
+        -- Kiểm tra parent tồn tại trước khi Destroy
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
     end)
 end
 
@@ -170,6 +175,8 @@ end
 local function cleanupEffects()
     for _, obj in ipairs(Workspace:GetDescendants()) do
         pcall(function()
+            -- Chỉ xử lý đúng kiểu effect, KHÔNG đụng BasePart
+            if obj:IsA("BasePart") then return end
             if isEffect(obj) then killEffect(obj) end
         end)
     end
@@ -218,7 +225,7 @@ local function smartCleanup()
     local rootPos = root.Position
 
     -- 🔥 SPATIAL QUERY: Chỉ lấy parts trong bán kính, không scan toàn map
-    local nearbyParts = Workspace:GetPartBoundsInRadius(rootPos, Config.SpatialRadius, OverlapParams)
+    local nearbyParts = Workspace:GetPartBoundsInRadius(rootPos, Config.SpatialRadius, spatialParams)
 
     -- Chunk xử lý để tránh spike
     local startIdx = ((cleanupCycle - 1) % math.ceil(#nearbyParts / Config.ChunkSize + 1)) * Config.ChunkSize + 1
