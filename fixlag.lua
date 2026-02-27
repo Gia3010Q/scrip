@@ -19,12 +19,17 @@ local Config = {
 
     KeepBrainrots = true,
     ReduceWaterEffects = true,
-    MinimalLighting = true
+    MinimalLighting = true,
+
+    -- Spatial Query: chỉ xử lý parts trong bán kính này (thay GetDescendants)
+    SpatialRadius = 700
 }
 
 -- ===== CACHE =====
-local descendantsCache = {}
-local cacheExpiry = 0
+-- (Không còn dùng descendantsCache toàn cục nữa — Spatial Query thay thế)
+local OverlapParams = OverlapParams.new()
+OverlapParams.FilterType = Enum.RaycastFilterType.Exclude
+OverlapParams.FilterDescendantsInstances = {}
 
 -- ===== 1️⃣ XÓA ÂM THANH - INITIAL CLEANUP =====
 local function killSound(obj)
@@ -133,7 +138,8 @@ local function setupListeners()
     end)
 end
 
--- ===== 3️⃣ LOOP MỖI 0.5 GIÂY - SOUNDS ONLY =====
+-- ===== 3️⃣ LOOP MỖI 2 GIÂY - SOUNDS ONLY =====
+-- (Đã có DescendantAdded listener → không cần loop nhanh)
 local function startCleanupLoop()
     task.spawn(function()
         while true do
@@ -155,7 +161,7 @@ local function startCleanupLoop()
                 end
             end)
 
-            task.wait(0.5)
+            task.wait(2) -- Tăng từ 0.5s → 2s (đã có listener bắt real-time)
         end
     end)
 end
@@ -199,7 +205,7 @@ local function optimizeLighting()
     end
 end
 
--- ===== 6️⃣ SMART CLEANUP =====
+-- ===== 6️⃣ SMART CLEANUP (SPATIAL QUERY - PRO) =====
 local cleanupCycle = 0
 
 local function smartCleanup()
@@ -211,71 +217,59 @@ local function smartCleanup()
     if not root then return end
     local rootPos = root.Position
 
-    -- Cache mỗi 15 giây
-    local now = tick()
-    if now > cacheExpiry then
-        descendantsCache = Workspace:GetDescendants()
-        cacheExpiry = now + 15
-    end
+    -- 🔥 SPATIAL QUERY: Chỉ lấy parts trong bán kính, không scan toàn map
+    local nearbyParts = Workspace:GetPartBoundsInRadius(rootPos, Config.SpatialRadius, OverlapParams)
 
-    local startIdx = ((cleanupCycle - 1) % math.ceil(#descendantsCache / Config.ChunkSize)) * Config.ChunkSize + 1
-    local endIdx = math.min(startIdx + Config.ChunkSize - 1, #descendantsCache)
+    -- Chunk xử lý để tránh spike
+    local startIdx = ((cleanupCycle - 1) % math.ceil(#nearbyParts / Config.ChunkSize + 1)) * Config.ChunkSize + 1
+    local endIdx = math.min(startIdx + Config.ChunkSize - 1, #nearbyParts)
 
     for i = startIdx, endIdx do
-        local obj = descendantsCache[i]
+        local obj = nearbyParts[i]
         if not obj then break end
 
-        pcall(function()
-            local isImportant = false
-            if Config.KeepBrainrots then
-                if obj.Name:find("Brainrot") or
-                   (obj.Parent and obj.Parent.Name:find("Brainrot")) or
-                   obj.Name:find("Coin") or obj.Name:find("Cash") or
-                   obj.Name:find("Money") or obj.Name:find("Rebirth") then
-                    isImportant = true
-                    if obj:IsA("BasePart") then
-                        obj.CastShadow = false
-                        obj.Material = Enum.Material.Plastic
-                    end
-                end
+        -- Spatial Query trả về BasePart trực tiếp — không cần kiểm tra type nữa
+        -- Không dùng pcall trong loop chính (type đã được lọc sẵn)
+        local name = obj.Name
+        local isImportant = false
+
+        if Config.KeepBrainrots then
+            local parentName = obj.Parent and obj.Parent.Name or ""
+            if name:find("Brainrot") or parentName:find("Brainrot") or
+               name:find("Coin") or name:find("Cash") or
+               name:find("Money") or name:find("Rebirth") then
+                isImportant = true
+                obj.CastShadow = false
+                obj.Material = Enum.Material.Plastic
             end
+        end
 
-            if not isImportant and obj:IsA("BasePart") then
-                local dist = (obj.Position - rootPos).Magnitude
+        if not isImportant then
+            local dist = (obj.Position - rootPos).Magnitude
 
-                if dist > 1000 then
-                    obj:Destroy()
-                elseif dist > Config.CleanupDistance then
-                    obj.Transparency = 0.95
-                    obj.CanCollide = false
-                    obj.CastShadow = false
-                elseif dist > Config.RenderDistance then
-                    obj.Transparency = math.min(obj.Transparency + 0.5, 0.85)
-                    obj.CanCollide = false
-                    obj.CastShadow = false
-                    obj.Material = Enum.Material.Plastic
-                else
-                    obj.CastShadow = false
-                    obj.Reflectance = 0
-                end
-
-                if cleanupCycle % 3 == 0 and obj:IsA("MeshPart") and dist > 200 then
-                    obj.TextureID = ""
-                end
+            if dist > Config.CleanupDistance then
+                if obj.Transparency ~= 0.95 then obj.Transparency = 0.95 end
+                obj.CanCollide = false
+                obj.CastShadow = false
+            elseif dist > Config.RenderDistance then
+                if obj.Transparency < 0.85 then obj.Transparency = 0.85 end
+                obj.CanCollide = false
+                obj.CastShadow = false
+                obj.Material = Enum.Material.Plastic
+            else
+                obj.CastShadow = false
+                obj.Reflectance = 0
             end
-
-            if (obj:IsA("Decal") or obj:IsA("Texture")) and
-               obj.Parent and obj.Parent:IsA("BasePart") then
-                if (obj.Parent.Position - rootPos).Magnitude > 400 then
-                    obj:Destroy()
-                end
-            end
-        end)
+        end
     end
 end
 
--- ===== 7️⃣ TỐI ƯU TERRAIN =====
+-- ===== 7️⃣ TỐI ƯU TERRAIN (chỉ chạy 1 lần lúc boot) =====
+local terrainOptimized = false
 local function optimizeTerrain()
+    if terrainOptimized then return end
+    terrainOptimized = true
+
     local terrain = Workspace:FindFirstChildOfClass("Terrain")
     if terrain then
         pcall(function()
@@ -286,14 +280,15 @@ local function optimizeTerrain()
         end)
     end
 
+    -- Scan 1 lần duy nhất — không lặp lại ở chu kỳ sau
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        pcall(function()
-            if (obj.Name:find("Water") or obj.Name:find("Tsunami")) and obj:IsA("BasePart") then
+        if (obj.Name:find("Water") or obj.Name:find("Tsunami")) and obj:IsA("BasePart") then
+            pcall(function()
                 obj.Transparency = 0.6
                 obj.Reflectance = 0
                 obj.Material = Enum.Material.SmoothPlastic
-            end
-        end)
+            end)
+        end
     end
 end
 
@@ -320,20 +315,41 @@ local function optimizeGUI()
     end)
 end
 
--- ===== 9️⃣ TỐI ƯU HỆ THỐNG =====
+-- ===== 9️⃣ TỰ CHỈNH SETTINGS ĐỒ HỌA VỀ THẤP NHẤT =====
 local function optimizeSystem()
+    -- Chế Độ Đồ Họa → Thủ Công (Manual) + Chất Lượng = 1 (thấp nhất)
+    pcall(function()
+        local gameSettings = UserSettings():GetService("UserGameSettings")
+        gameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        gameSettings.MasterVolume = 0
+    end)
+
+    -- Rendering settings → thấp nhất
     pcall(function()
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
+        settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level04
     end)
+
+    -- Giảm chuyển động (Reduced Motion)
+    pcall(function()
+        local gameSettings = UserSettings():GetService("UserGameSettings")
+        gameSettings.ReducedMotion = true
+        gameSettings.PreferredTransparency = 1
+    end)
+
+    -- Physics
     pcall(function()
         settings().Physics.AllowSleep = true
         settings().Physics.ThrottleAdjustTime = 0
     end)
+
+    -- Camera
     pcall(function()
         local camera = Workspace.CurrentCamera
         if camera then camera.FieldOfView = 70 end
     end)
+
+    -- Tắt shadow character
     pcall(function()
         local char = player.Character
         if char then
@@ -406,7 +422,7 @@ optimizeSystem()
 optimizeGUI()
 createFPSCounter()
 
--- Cleanup định kỳ
+-- Cleanup định kỳ (chỉ smartCleanup — terrain không lặp)
 local timer = 0
 local scanCounter = 0
 
@@ -416,10 +432,6 @@ RunService.Heartbeat:Connect(function(dt)
         smartCleanup()
         timer = 0
         scanCounter = scanCounter + 1
-        if scanCounter >= 5 then
-            descendantsCache = Workspace:GetDescendants()
-            scanCounter = 0
-        end
     end
 end)
 
@@ -432,4 +444,4 @@ player.CharacterAdded:Connect(function()
     end)
 end)
 
-print("✅ SAFE LAG FIX - ACTIVE")
+print("✅ SAFE LAG FIX PRO - SPATIAL QUERY ACTIVE")
