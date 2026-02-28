@@ -1,5 +1,6 @@
 -- ===================================================
--- DELTA MOBILE FULL FPS BOOST + MENU
+-- DELTA MOBILE LITE
+-- FULL BOOST + SOUND OFF
 -- 3-4GB RAM VERSION
 -- ===================================================
 
@@ -9,19 +10,20 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 
 -- Xóa GUI cũ nếu có
-if PlayerGui:FindFirstChild("DELTA_FPS_GUI") then
-    PlayerGui.DELTA_FPS_GUI:Destroy()
+if PlayerGui:FindFirstChild("DELTA_FPS") then
+    PlayerGui.DELTA_FPS:Destroy()
 end
 
-print("🔥 Mobile Boost Starting...")
+print("🔥 DELTA LITE STARTING...")
 
 -- ==============================
--- 1. FORCE LOW GRAPHICS
+-- 1. LOW GRAPHICS
 -- ==============================
 
 Lighting.GlobalShadows = false
@@ -54,105 +56,59 @@ for _,v in pairs(Workspace:GetDescendants()) do
 end
 
 -- ==============================
--- 2. FPS MENU UI
+-- 2. SOUND OFF (FULL)
 -- ==============================
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "DELTA_FPS_GUI"
-gui.ResetOnSpawn = false
-gui.Parent = PlayerGui
+SoundService.Volume = 0
 
--- FPS Label
-local fpsLabel = Instance.new("TextLabel")
-fpsLabel.Size = UDim2.new(0,130,0,45)
-fpsLabel.Position = UDim2.new(1,-150,0,100)
-fpsLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
-fpsLabel.BackgroundTransparency = 0.3
-fpsLabel.TextColor3 = Color3.fromRGB(0,255,0)
-fpsLabel.TextScaled = true
-fpsLabel.Font = Enum.Font.GothamBold
-fpsLabel.Text = "FPS: ..."
-fpsLabel.Parent = gui
-
-Instance.new("UICorner", fpsLabel).CornerRadius = UDim.new(0,12)
-
--- Toggle Button
-local toggle = Instance.new("TextButton")
-toggle.Size = UDim2.new(0,80,0,35)
-toggle.Position = UDim2.new(1,-100,0,160)
-toggle.BackgroundColor3 = Color3.fromRGB(20,20,20)
-toggle.TextColor3 = Color3.fromRGB(255,255,255)
-toggle.TextScaled = true
-toggle.Font = Enum.Font.GothamBold
-toggle.Text = "Hide"
-toggle.Parent = gui
-
-Instance.new("UICorner", toggle).CornerRadius = UDim.new(0,10)
-
--- Kéo thả FPS
-local dragging = false
-local dragInput, dragStart, startPos
-
-fpsLabel.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = fpsLabel.Position
-	end
-end)
-
-fpsLabel.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - dragStart
-		fpsLabel.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
-end)
-
-fpsLabel.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
-	end
-end)
-
--- Toggle Show/Hide
-toggle.MouseButton1Click:Connect(function()
-	if fpsLabel.Visible then
-		fpsLabel.Visible = false
-		toggle.Text = "Show"
-	else
-		fpsLabel.Visible = true
-		toggle.Text = "Hide"
-	end
-end)
+for _,v in pairs(game:GetDescendants()) do
+    if v:IsA("Sound") then
+        v.Volume = 0
+        v.Playing = false
+    end
+end
 
 -- ==============================
 -- 3. FPS COUNTER
 -- ==============================
 
+local gui = Instance.new("ScreenGui")
+gui.Name = "DELTA_FPS"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0,130,0,45)
+label.Position = UDim2.new(1,-150,0,100)
+label.BackgroundColor3 = Color3.fromRGB(0,0,0)
+label.BackgroundTransparency = 0.3
+label.TextColor3 = Color3.fromRGB(0,255,0)
+label.TextScaled = true
+label.Font = Enum.Font.GothamBold
+label.Text = "FPS: ..."
+label.Parent = gui
+
+Instance.new("UICorner", label).CornerRadius = UDim.new(0,12)
+
 local frames = 0
 local last = tick()
 
 RunService.RenderStepped:Connect(function()
-	frames += 1
-	if tick() - last >= 1 then
-		fpsLabel.Text = "FPS: "..frames
-		
-		if frames < 30 then
-			fpsLabel.TextColor3 = Color3.fromRGB(255,0,0)
-		elseif frames < 50 then
-			fpsLabel.TextColor3 = Color3.fromRGB(255,255,0)
-		else
-			fpsLabel.TextColor3 = Color3.fromRGB(0,255,0)
-		end
-		
-		frames = 0
-		last = tick()
-	end
+    frames += 1
+    if tick() - last >= 1 then
+        label.Text = "FPS: "..frames
+        
+        if frames < 30 then
+            label.TextColor3 = Color3.fromRGB(255,0,0)
+        elseif frames < 50 then
+            label.TextColor3 = Color3.fromRGB(255,255,0)
+        else
+            label.TextColor3 = Color3.fromRGB(0,255,0)
+        end
+        
+        frames = 0
+        last = tick()
+    end
 end)
 
 -- ==============================
@@ -160,7 +116,7 @@ end)
 -- ==============================
 
 if setfpscap then
-	setfpscap(40)
+    setfpscap(40)
 end
 
-print("✅ DELTA BOOST + MENU ENABLED")
+print("✅ DELTA LITE ENABLED")
