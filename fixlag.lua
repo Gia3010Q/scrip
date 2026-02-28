@@ -87,7 +87,7 @@ local State = {
     fpsLockTarget     = CONFIG.FPS_LOCK_TARGET,
     currentFPS        = 0,
     optimized         = false,
-    guiExpanded       = false, -- Mobile: panel mở/đóng
+    guiExpanded       = true,  -- Mobile: panel mở/đóng
 }
 
 -- ============================================================
@@ -108,7 +108,7 @@ local function createGui()
     -- ─── PANEL CHÍNH ────────────────────────────────────────
     -- Mobile: góc trái trên, rộng hơn; PC: góc phải trên
     local panelW = IS_MOBILE and 160 or 140
-    local panelH = IS_MOBILE and 40  or 72  -- Mobile thu gọn, bấm mở
+    local panelH = IS_MOBILE and 192 or 72  -- Mobile mở sẵn khi khởi động
     local posX   = IS_MOBILE and UDim2.new(0, 8, 0, 8) or UDim2.new(1, -(panelW + 8), 0, 8)
 
     local panel = Instance.new("Frame")
@@ -136,7 +136,7 @@ local function createGui()
     header.Size = UDim2.new(1, 0, 0, 40)
     header.Position = UDim2.new(0, 0, 0, 0)
     header.BackgroundTransparency = 1
-    header.Text = IS_MOBILE and "⚡ FIX PRO  ▾" or "⚡ LAG FIX PRO"
+    header.Text = IS_MOBILE and "⚡ FIX PRO  ▴" or "⚡ LAG FIX PRO"
     header.TextColor3 = Color3.fromRGB(180, 180, 240)
     header.TextSize = IS_MOBILE and 14 or 11
     header.Font = Enum.Font.GothamBold
