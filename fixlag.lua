@@ -1,7 +1,6 @@
 -- ===================================================
--- DELTA MOBILE LITE
--- FULL BOOST + SOUND OFF
--- 3-4GB RAM VERSION
+-- DELTA MOBILE FULL FPS BOOST
+-- 3-4GB RAM VERSION + REMOVE ALL SOUND
 -- ===================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -13,17 +12,11 @@ local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
 
--- Xóa GUI cũ nếu có
-if PlayerGui:FindFirstChild("DELTA_FPS") then
-    PlayerGui.DELTA_FPS:Destroy()
-end
-
-print("🔥 DELTA LITE STARTING...")
+print("🔥 Mobile Boost Starting...")
 
 -- ==============================
--- 1. LOW GRAPHICS
+-- 1. FORCE LOW GRAPHICS
 -- ==============================
 
 Lighting.GlobalShadows = false
@@ -36,7 +29,10 @@ for _,v in pairs(Lighting:GetChildren()) do
     end
 end
 
-for _,v in pairs(Workspace:GetDescendants()) do
+-- Giảm Material + Texture
+local workspaceDescendants = Workspace:GetDescendants()
+for i, v in ipairs(workspaceDescendants) do
+    if i % 100 == 0 then task.wait() end -- Tránh freeze game
     if v:IsA("BasePart") then
         v.Material = Enum.Material.SmoothPlastic
         v.Reflectance = 0
@@ -56,67 +52,105 @@ for _,v in pairs(Workspace:GetDescendants()) do
 end
 
 -- ==============================
--- 2. SOUND OFF (FULL)
+-- 2. REMOVE / DISABLE ALL SOUNDS
 -- ==============================
 
 SoundService.Volume = 0
+SoundService.AmbientReverb = Enum.ReverbType.NoReverb
 
-for _,v in pairs(game:GetDescendants()) do
-    if v:IsA("Sound") then
-        v.Volume = 0
-        v.Playing = false
+local servicesToScan = {Workspace, SoundService, Lighting, game:GetService("ReplicatedStorage")}
+for _, service in ipairs(servicesToScan) do
+    for _,v in ipairs(service:GetDescendants()) do
+        if v:IsA("Sound") then
+            v:Stop()
+            v.Volume = 0
+            v.Playing = false
+        end
     end
 end
 
+-- Chỉ theo dõi Workspace và SoundService thay vì toàn bộ Game (giảm lag)
+Workspace.DescendantAdded:Connect(function(obj)
+    if obj:IsA("Sound") then
+        task.wait()
+        obj:Stop()
+        obj.Volume = 0
+        obj.Playing = false
+    end
+end)
+SoundService.DescendantAdded:Connect(function(obj)
+    if obj:IsA("Sound") then
+        task.wait()
+        obj:Stop()
+        obj.Volume = 0
+        obj.Playing = false
+    end
+end)
+
 -- ==============================
--- 3. FPS COUNTER
+-- 3. FPS COUNTER UI
 -- ==============================
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "DELTA_FPS"
+gui.Name = "MobileFPSCounter"
 gui.ResetOnSpawn = false
-gui.Parent = PlayerGui
+
+-- Đưa vào CoreGui nếu có thể, tránh bị game xóa
+local success = pcall(function()
+    gui.Parent = (gethui and gethui()) or game:GetService("CoreGui")
+end)
+if not success then
+    gui.Parent = player:WaitForChild("PlayerGui")
+end
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 100, 0, 30)
+frame.Position = UDim2.new(1, -110, 0, 10) -- Góc phải màn hình
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BackgroundTransparency = 0.5
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 6)
+corner.Parent = frame
 
 local label = Instance.new("TextLabel")
-label.Size = UDim2.new(0,130,0,45)
-label.Position = UDim2.new(1,-150,0,100)
-label.BackgroundColor3 = Color3.fromRGB(0,0,0)
-label.BackgroundTransparency = 0.3
-label.TextColor3 = Color3.fromRGB(0,255,0)
-label.TextScaled = true
+label.Size = UDim2.new(1, 0, 1, 0)
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.fromRGB(0, 255, 0)
+label.TextSize = 16
 label.Font = Enum.Font.GothamBold
-label.Text = "FPS: ..."
-label.Parent = gui
-
-Instance.new("UICorner", label).CornerRadius = UDim.new(0,12)
+label.Parent = frame
 
 local frames = 0
 local last = tick()
 
 RunService.RenderStepped:Connect(function()
-    frames += 1
-    if tick() - last >= 1 then
-        label.Text = "FPS: "..frames
+    frames = frames + 1
+    local now = tick()
+    if now - last >= 1 then
+        label.Text = "FPS: " .. frames
         
         if frames < 30 then
-            label.TextColor3 = Color3.fromRGB(255,0,0)
+            label.TextColor3 = Color3.fromRGB(255, 0, 0)
         elseif frames < 50 then
-            label.TextColor3 = Color3.fromRGB(255,255,0)
+            label.TextColor3 = Color3.fromRGB(255, 255, 0)
         else
-            label.TextColor3 = Color3.fromRGB(0,255,0)
+            label.TextColor3 = Color3.fromRGB(0, 255, 0)
         end
         
         frames = 0
-        last = tick()
+        last = now
     end
 end)
 
 -- ==============================
--- 4. LOCK FPS 40
+-- 4. LOCK FPS 30 (If Supported)
 -- ==============================
 
 if setfpscap then
-    setfpscap(40)
+    setfpscap(30)
 end
 
-print("✅ DELTA LITE ENABLED")
+print("✅ FULL BOOST ENABLED (SOUND REMOVED)")
