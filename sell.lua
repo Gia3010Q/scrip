@@ -18,7 +18,7 @@ local CONFIG = {
     Interval     = 3,
     SkipLocked   = true,
     OnlySellPets = true,
-    MaxSlots     = 4,
+    MaxSlots     = 3,
     RetryDelay   = 1,
 }
 
@@ -524,3 +524,4 @@ UIS.InputBegan:Connect(function(i, gp)
 end)
 
 print("[AutoSell] ✅ Script loaded | RightShift = Án/Hien menu | Đã tách tab")
+
