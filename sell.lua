@@ -112,30 +112,22 @@ local function tryListPet(pet)
 end
 
 local function runLoop()
-    local tryIdx = 1
+    queueIdx = 1; slotsFilled = 0
     while isRunning do
         if not listRemote then findRemote(); task.wait(2); continue end
         local pets = getPets()
-        if #pets == 0 or tryIdx > #pets then
-            tryIdx = 1; task.wait(3); continue
+        if #pets == 0 or queueIdx > #pets then
+            queueIdx = 1; slotsFilled = 0; task.wait(CONFIG.Interval); continue
         end
-        local pet = pets[tryIdx]
-        if not pet or not passFilter(pet) then tryIdx += 1; continue end
-        
-        -- Thử treo Pet
-        local success, result = pcall(function()
-            return listRemote:InvokeServer(pet.uuid, tostring(CONFIG.SellPrice))
-        end)
-        
-        -- Nếu InvokeServer chạy ok và không trả về chuỗi thông báo Full (như "You have hit your offering limit!")
-        if success and type(result) ~= "string" and result ~= false then
-            tryIdx += 1
-            task.wait(CONFIG.RetryDelay) -- Treo thành công thì đợi ngụm nhỏ rồi quăng dồn tiếp
-        else
-            -- Bị giới hạn (Limit): Treo thất bại do Full hoặc lag! Đứng nguyên ở Pet này. Xả hơi chờ khách chốt đơn.
-            print("[AutoSell] Slot trên quầy đang full. Chờ trống để nhét tiếp...")
-            task.wait(CONFIG.Interval) 
+        if slotsFilled >= CONFIG.MaxSlots then
+            task.wait(CONFIG.Interval)
+            slotsFilled = math.max(0, slotsFilled - 1)
+            continue
         end
+        local pet = pets[queueIdx]
+        if not pet or not passFilter(pet) then queueIdx += 1; continue end
+        if tryListPet(pet) then queueIdx += 1; task.wait(CONFIG.RetryDelay)
+        else slotsFilled = CONFIG.MaxSlots; task.wait(CONFIG.Interval) end
     end
 end
 
@@ -363,7 +355,7 @@ local function makeButton(parent, labelText, color, onClick)
 end
 
 local function makeInput(parent, labelText, placeholder, onChange)
-    local row = newRow(parent, 56)
+    local row = newRow(parent, 60)
     local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
     lbl.Size = UDim2.new(1,-12,0,18); lbl.Position = UDim2.new(0,10,0,4)
 
@@ -386,7 +378,7 @@ local function makeInput(parent, labelText, placeholder, onChange)
 end
 
 local function makeSlider(parent, labelText, min, max, default, onChange)
-    local row = newRow(parent, 56)
+    local row = newRow(parent, 60)
     local valDisplay = tostring(default)
 
     local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
@@ -433,7 +425,7 @@ end
 
 -- Bo chon kieu nut bam (1 2 3 4...)
 local function makeSelector(parent, labelText, options, default, onChange)
-    local row = newRow(parent, 56)
+    local row = newRow(parent, 60)
     local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
     lbl.Size = UDim2.new(1,-12,0,18); lbl.Position = UDim2.new(0,10,0,4)
 
@@ -505,18 +497,9 @@ makeInput(TabConfig, "Giá bán mỗi pet", "Nhập số... (vd: 5000)", functio
     local n = tonumber(v)
     if n and n > 0 then CONFIG.SellPrice = n end
 end)
-makeInput(TabConfig, "Số khe gian hàng (MaxSlots)", "Nhập số tối đa... (vd: 4)", function(v)
-    local n = tonumber(v)
-    if n and n > 0 then CONFIG.MaxSlots = math.round(n) end
-end)
-makeInput(TabConfig, "Thời gian đợi (giây)", "Nhập số giây... (vd: 3)", function(v)
-    local n = tonumber(v)
-    if n and n >= 0 then CONFIG.Interval = n end
-end)
-makeInput(TabConfig, "Thời gian chờ lại (RetryDelay)", "Nhập số giây... (vd: 1)", function(v)
-    local n = tonumber(v)
-    if n and n >= 0 then CONFIG.RetryDelay = n end
-end)
+makeSelector(TabConfig, "Số khe gian hàng (MaxSlots)", {1,2,3,4,5,6,8,12}, 4, function(v) CONFIG.MaxSlots = v end)
+makeSlider(TabConfig, "Thời gian đợi (giây)", 1, 30, 3, function(v) CONFIG.Interval = v end)
+makeSelector(TabConfig, "Thời gian chờ lại (RetryDelay)", {0.5, 1, 1.5, 2, 3}, 1, function(v) CONFIG.RetryDelay = v end)
 
 sectionTitle(TabConfig, "TÙY CHỌN BỎ QUA")
 makeToggle(TabConfig, "Bỏ qua pet bị Khóa 🔒", true, function(v) CONFIG.SkipLocked = v end)
