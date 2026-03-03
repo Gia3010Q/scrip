@@ -112,22 +112,30 @@ local function tryListPet(pet)
 end
 
 local function runLoop()
-    queueIdx = 1; slotsFilled = 0
+    local tryIdx = 1
     while isRunning do
         if not listRemote then findRemote(); task.wait(2); continue end
         local pets = getPets()
-        if #pets == 0 or queueIdx > #pets then
-            queueIdx = 1; slotsFilled = 0; task.wait(CONFIG.Interval); continue
+        if #pets == 0 or tryIdx > #pets then
+            tryIdx = 1; task.wait(3); continue
         end
-        if slotsFilled >= CONFIG.MaxSlots then
-            task.wait(CONFIG.Interval)
-            slotsFilled = math.max(0, slotsFilled - 1)
-            continue
+        local pet = pets[tryIdx]
+        if not pet or not passFilter(pet) then tryIdx += 1; continue end
+        
+        -- Thử treo Pet
+        local success, result = pcall(function()
+            return listRemote:InvokeServer(pet.uuid, tostring(CONFIG.SellPrice))
+        end)
+        
+        -- Nếu InvokeServer chạy ok và không trả về chuỗi thông báo Full (như "You have hit your offering limit!")
+        if success and type(result) ~= "string" and result ~= false then
+            tryIdx += 1
+            task.wait(CONFIG.RetryDelay) -- Treo thành công thì đợi ngụm nhỏ rồi quăng dồn tiếp
+        else
+            -- Bị giới hạn (Limit): Treo thất bại do Full hoặc lag! Đứng nguyên ở Pet này. Xả hơi chờ khách chốt đơn.
+            print("[AutoSell] Slot trên quầy đang full. Chờ trống để nhét tiếp...")
+            task.wait(CONFIG.Interval) 
         end
-        local pet = pets[queueIdx]
-        if not pet or not passFilter(pet) then queueIdx += 1; continue end
-        if tryListPet(pet) then queueIdx += 1; task.wait(CONFIG.RetryDelay)
-        else slotsFilled = CONFIG.MaxSlots; task.wait(CONFIG.Interval) end
     end
 end
 
