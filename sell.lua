@@ -423,6 +423,52 @@ local function makeSlider(parent, labelText, min, max, default, onChange)
     return row
 end
 
+-- Bo chon kieu nut bam (1 2 3 4...)
+local function makeSelector(parent, labelText, options, default, onChange)
+    local row = newRow(parent, 56)
+    local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
+    lbl.Size = UDim2.new(1,-12,0,18); lbl.Position = UDim2.new(0,10,0,4)
+
+    local btnContainer = Instance.new("Frame", row)
+    btnContainer.Size = UDim2.new(1,-20,0,26)
+    btnContainer.Position = UDim2.new(0,10,0,26)
+    btnContainer.BackgroundTransparency = 1
+
+    local layout = Instance.new("UIListLayout", btnContainer)
+    layout.FillDirection = Enum.FillDirection.Horizontal
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 3)
+
+    local btns = {}
+    local n = #options
+
+    local function selectOpt(val)
+        for _, b in pairs(btns) do
+            local sel = b:GetAttribute("optval") == val
+            tween(b, {BackgroundColor3 = sel and C.ACCENT or C.ROW})
+            b.TextColor3 = sel and Color3.new(1,1,1) or C.SUBTEXT
+        end
+        onChange(val)
+    end
+
+    for idx, opt in ipairs(options) do
+        local b = Instance.new("TextButton", btnContainer)
+        b.Size = UDim2.new(1/n, -3, 1, 0)
+        b.BackgroundColor3 = (opt == default) and C.ACCENT or C.ROW
+        b.TextColor3 = (opt == default) and Color3.new(1,1,1) or C.SUBTEXT
+        b.Text = tostring(opt)
+        b.TextSize = 11
+        b.Font = Enum.Font.GothamBold
+        b.BorderSizePixel = 0
+        b.LayoutOrder = idx
+        b:SetAttribute("optval", opt)
+        corner(b, 5)
+        b.MouseButton1Click:Connect(function() selectOpt(opt) end)
+        table.insert(btns, b)
+    end
+    return row
+end
+
 -- ===============================================
 -- TAB: CHINH (MAIN)
 sectionTitle(TabMain, "ĐIỀU KHIỂN BÁN")
@@ -451,8 +497,9 @@ makeInput(TabConfig, "Giá bán mỗi pet", "Nhập số... (vd: 5000)", functio
     local n = tonumber(v)
     if n and n > 0 then CONFIG.SellPrice = n end
 end)
-makeSlider(TabConfig, "Số khe gian hàng", 1, 8, 4, function(v) CONFIG.MaxSlots = v end)
+makeSelector(TabConfig, "Số khe gian hàng (MaxSlots)", {1,2,3,4,5,6,7,8}, 4, function(v) CONFIG.MaxSlots = v end)
 makeSlider(TabConfig, "Thời gian đợi (giây)", 1, 30, 3, function(v) CONFIG.Interval = v end)
+makeSelector(TabConfig, "Thời gian chờ lại (RetryDelay)", {0.5, 1, 1.5, 2, 3}, 1, function(v) CONFIG.RetryDelay = v end)
 
 sectionTitle(TabConfig, "TÙY CHỌN BỎ QUA")
 makeToggle(TabConfig, "Bỏ qua pet bị Khóa 🔒", true, function(v) CONFIG.SkipLocked = v end)
@@ -524,4 +571,3 @@ UIS.InputBegan:Connect(function(i, gp)
 end)
 
 print("[AutoSell] ✅ Script loaded | RightShift = Án/Hien menu | Đã tách tab")
-
