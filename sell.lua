@@ -497,9 +497,18 @@ makeInput(TabConfig, "Giá bán mỗi pet", "Nhập số... (vd: 5000)", functio
     local n = tonumber(v)
     if n and n > 0 then CONFIG.SellPrice = n end
 end)
-makeSelector(TabConfig, "Số khe gian hàng (MaxSlots)", {1,2,3,4,5,6,7,8}, 4, function(v) CONFIG.MaxSlots = v end)
-makeSlider(TabConfig, "Thời gian đợi (giây)", 1, 30, 3, function(v) CONFIG.Interval = v end)
-makeSelector(TabConfig, "Thời gian chờ lại (RetryDelay)", {0.5, 1, 1.5, 2, 3}, 1, function(v) CONFIG.RetryDelay = v end)
+makeInput(TabConfig, "Số khe gian hàng (MaxSlots)", "Nhập số tối đa... (vd: 4)", function(v)
+    local n = tonumber(v)
+    if n and n > 0 then CONFIG.MaxSlots = math.round(n) end
+end)
+makeInput(TabConfig, "Thời gian đợi (giây)", "Nhập số giây... (vd: 3)", function(v)
+    local n = tonumber(v)
+    if n and n >= 0 then CONFIG.Interval = n end
+end)
+makeInput(TabConfig, "Thời gian chờ lại (RetryDelay)", "Nhập số giây... (vd: 1)", function(v)
+    local n = tonumber(v)
+    if n and n >= 0 then CONFIG.RetryDelay = n end
+end)
 
 sectionTitle(TabConfig, "TÙY CHỌN BỎ QUA")
 makeToggle(TabConfig, "Bỏ qua pet bị Khóa 🔒", true, function(v) CONFIG.SkipLocked = v end)
