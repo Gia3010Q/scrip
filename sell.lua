@@ -132,6 +132,20 @@ local function runLoop()
 end
 
 -- =====================================================
+-- ANTI AFK
+-- =====================================================
+local antiAFKEnabled = false
+local VirtualUser = game:GetService("VirtualUser")
+player.Idled:Connect(function()
+    if antiAFKEnabled then
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.5)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        print("[AutoSell] 🛡️ Anti-AFK đã hoạt động!")
+    end
+end)
+
+-- =====================================================
 -- STYLING
 -- =====================================================
 local C = {
@@ -402,7 +416,9 @@ local function makeSlider(parent, labelText, min, max, default, onChange)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=false end
     end)
     UIS.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update(i.Position.X) end
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            update(UIS:GetMouseLocation().X)
+        end
     end)
     return row
 end
@@ -418,16 +434,11 @@ makeToggle(TabMain, "Tự động treo bán", false, function(v)
     if v then task.spawn(runLoop) end
 end)
 
-makeButton(TabMain, "▶  Bán 1 lần ngay", C.GREEN, function()
-    if not listRemote then findRemote() end
-    task.spawn(function()
-        for _, pet in ipairs(getPets()) do
-            if passFilter(pet) then tryListPet(pet); task.wait(0.4) end
-        end
-    end)
-end)
-
 sectionTitle(TabMain, "HỆ THỐNG")
+makeToggle(TabMain, "🛡️ Anti-AFK", false, function(v)
+    antiAFKEnabled = v
+    print("[AutoSell] Anti-AFK:", v and "BẬT" or "TẮT")
+end)
 makeButton(TabMain, "🔍  Quét lại Remote", C.PANEL, function()
     local ok = findRemote()
     print("[AutoSell] Remote:", ok and listRemote:GetFullName() or "Không tìm thấy")
