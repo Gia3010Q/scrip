@@ -15,11 +15,10 @@ local PGui    = player:WaitForChild("PlayerGui")
 -- =====================================================
 local CONFIG = {
     SellPrice    = 500,
-    Interval     = 3,
+    Interval     = 60,  -- gianđoạn chờ khi quầy đầy (giây)
     SkipLocked   = true,
     OnlySellPets = true,
-    MaxSlots     = 3,
-    RetryDelay   = 1,
+    RetryDelay   = 1,   -- delay nhỏ giữa 2 lần treo thành công
 }
 
 local SELL_MUTATIONS = {}
@@ -96,40 +95,49 @@ local function passFilter(pet)
     return passMut and passRar
 end
 
--- =====================================================
+-- ===================================================
 -- SELL LOGIC
 -- =====================================================
-local isRunning   = false
-local totalSold   = 0
-local slotsFilled = 0
-local queueIdx    = 1
+local isRunning = false
+local totalSold = 0
+local queueIdx  = 1
 
 local function tryListPet(pet)
     if not listRemote then return false end
-    local ok = pcall(function() listRemote:InvokeServer(pet.uuid, CONFIG.SellPrice) end)
-    if ok then totalSold += 1; slotsFilled += 1 end
-    return ok
+    local pcallOk, result = pcall(function()
+        return listRemote:InvokeServer(pet.uuid, CONFIG.SellPrice)
+    end)
+    -- Server trả false hoặc string = từ chối (quầy đầy / lỗi)
+    local success = pcallOk and result ~= false and type(result) ~= "string"
+    if success then totalSold += 1 end
+    return success
 end
 
 local function runLoop()
-    queueIdx = 1; slotsFilled = 0
+    queueIdx = 1
     while isRunning do
         if not listRemote then findRemote(); task.wait(2); continue end
+
         local pets = getPets()
         if #pets == 0 or queueIdx > #pets then
-            queueIdx = 1; slotsFilled = 0; task.wait(CONFIG.Interval); continue
+            queueIdx = 1; task.wait(3); continue
         end
-        if slotsFilled >= CONFIG.MaxSlots then
-            task.wait(CONFIG.Interval)
-            slotsFilled = math.max(0, slotsFilled - 1)
-            continue
-        end
+
         local pet = pets[queueIdx]
         if not pet or not passFilter(pet) then queueIdx += 1; continue end
-        if tryListPet(pet) then queueIdx += 1; task.wait(CONFIG.RetryDelay)
-        else slotsFilled = CONFIG.MaxSlots; task.wait(CONFIG.Interval) end
+
+        if tryListPet(pet) then
+            -- Thành công → sang pet kế
+            print("[AutoSell] ✅ Treo:", pet.displayName or pet.uuid, "| Tổng đã bán:", totalSold)
+            queueIdx += 1
+            task.wait(CONFIG.RetryDelay)
+        else
+            -- Thất bại (quầy đầy) → chờ lâu hơn, ít gọi InvokeServer hơn
+            task.wait(CONFIG.Interval)
+        end
     end
 end
+
 
 -- =====================================================
 -- ANTI AFK
@@ -497,7 +505,7 @@ makeInput(TabConfig, "Giá bán mỗi pet", "Nhập số... (vd: 5000)", functio
     local n = tonumber(v)
     if n and n > 0 then CONFIG.SellPrice = n end
 end)
-makeSelector(TabConfig, "Số khe gian hàng (MaxSlots)", {1,2,3,4,5,6,8,12}, 4, function(v) CONFIG.MaxSlots = v end)
+
 makeSlider(TabConfig, "Thời gian đợi (giây)", 1, 30, 3, function(v) CONFIG.Interval = v end)
 makeSelector(TabConfig, "Thời gian chờ lại (RetryDelay)", {0.5, 1, 1.5, 2, 3}, 1, function(v) CONFIG.RetryDelay = v end)
 
