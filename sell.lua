@@ -1,6 +1,6 @@
 -- =====================================================
 -- AUTO PET SELL - Escape Tsunami for Brainrot
--- Custom GUI Tabbed Menu (khong dung WindUI)
+-- WindUI Menu
 -- =====================================================
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local PGui    = player:WaitForChild("PlayerGui")
 -- =====================================================
 local CONFIG = {
     SellPrice    = 500,
-    Interval     = 60,  -- gianđoạn chờ khi quầy đầy (giây)
+    Interval     = 15,  -- gianđoạn chờ khi quầy đầy (giây)
     SkipLocked   = true,
     OnlySellPets = true,
     RetryDelay   = 1,   -- delay nhỏ giữa 2 lần treo thành công
@@ -154,428 +154,290 @@ player.Idled:Connect(function()
 end)
 
 -- =====================================================
--- STYLING
--- =====================================================
-local C = {
-    BG      = Color3.fromRGB(20, 20, 28),
-    PANEL   = Color3.fromRGB(28, 28, 38),
-    ROW     = Color3.fromRGB(36, 36, 50),
-    ACCENT  = Color3.fromRGB(110, 90, 220),
-    GREEN   = Color3.fromRGB(50, 200, 100),
-    RED     = Color3.fromRGB(220, 60, 60),
-    TEXT    = Color3.fromRGB(230, 230, 240),
-    SUBTEXT = Color3.fromRGB(140, 135, 165),
-    BORDER  = Color3.fromRGB(55, 50, 80),
-}
-
-local function corner(p, r) local c = Instance.new("UICorner",p); c.CornerRadius = UDim.new(0,r or 8); return c end
-local function newLabel(parent, text, size, color, xa, bold)
-    local l = Instance.new("TextLabel", parent)
-    l.BackgroundTransparency = 1
-    l.Size = UDim2.new(1,0,1,0)
-    l.Text = text
-    l.TextSize = size or 13
-    l.TextColor3 = color or C.TEXT
-    l.TextXAlignment = xa or Enum.TextXAlignment.Left
-    l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-    l.TextTruncate = Enum.TextTruncate.AtEnd
-    return l
-end
-local function tween(obj, props, t)
-    TweenS:Create(obj, TweenInfo.new(t or 0.12, Enum.EasingStyle.Quad), props):Play()
-end
-
--- =====================================================
--- MAIN GUI
+-- WINDUI MENU
 -- =====================================================
 local oldGui = PGui:FindFirstChild("AutoSellMenu")
-if oldGui then oldGui:Destroy() end
+if oldGui then
+    oldGui:Destroy()
+end
 
-local ScreenGui = Instance.new("ScreenGui", PGui)
-ScreenGui.Name = "AutoSellMenu"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
--- MENU PANEL
-local Menu = Instance.new("Frame", ScreenGui)
-Menu.Name = "Menu"
-Menu.Size = UDim2.new(0, 310, 0, 420)
-Menu.Position = UDim2.new(0, 30, 0.5, -210)
-Menu.BackgroundColor3 = C.BG
-Menu.BorderSizePixel = 0
-corner(Menu, 12)
-local menuStroke = Instance.new("UIStroke", Menu)
-menuStroke.Color = C.BORDER; menuStroke.Thickness = 1.5
+local Window = WindUI:CreateWindow({
+    Title = "Auto Pet Sell",
+    Icon = "paw-print",
+    Author = "by bạn + ChatGPT",
+    Folder = "AutoPetSell_WindUI",
+    Size = UDim2.fromOffset(600, 460),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 190,
+})
 
--- HEADER
-local Header = Instance.new("Frame", Menu)
-Header.Size = UDim2.new(1, 0, 0, 38)
-Header.BackgroundColor3 = C.PANEL
-Header.BorderSizePixel = 0
-corner(Header, 12)
-local HFix = Instance.new("Frame", Header)
-HFix.Size = UDim2.new(1,0,0,12); HFix.Position = UDim2.new(0,0,1,-12)
-HFix.BackgroundColor3 = C.PANEL; HFix.BorderSizePixel = 0
-
-local TitleLbl = Instance.new("TextLabel", Header)
-TitleLbl.Size = UDim2.new(1,-45, 1, 0); TitleLbl.Position = UDim2.new(0, 12, 0, 0)
-TitleLbl.Text="🐾 Auto Pet Sell"; TitleLbl.TextSize=13; TitleLbl.Font=Enum.Font.GothamBold
-TitleLbl.TextColor3=C.TEXT; TitleLbl.BackgroundTransparency=1; TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
-
--- Nut "-"
-local MinBtn = Instance.new("TextButton", Header)
-MinBtn.Size = UDim2.new(0,26,0,26); MinBtn.Position = UDim2.new(1,-32,0.5,-13)
-MinBtn.Text = "−"; MinBtn.TextSize = 18; MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextColor3 = C.SUBTEXT; MinBtn.BackgroundColor3 = C.ROW; MinBtn.BorderSizePixel = 0
-corner(MinBtn, 6)
-MinBtn.MouseEnter:Connect(function() tween(MinBtn,{BackgroundColor3=C.RED}) end)
-MinBtn.MouseLeave:Connect(function() tween(MinBtn,{BackgroundColor3=C.ROW}) end)
-
--- Drag menu
-local dragMenu, dm_start, dm_pos
-Header.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragMenu=true; dm_start=i.Position; dm_pos=Menu.Position
-    end
-end)
-Header.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragMenu=false end
-end)
-UIS.InputChanged:Connect(function(i)
-    if dragMenu and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - dm_start
-        Menu.Position = UDim2.new(dm_pos.X.Scale, dm_pos.X.Offset+d.X, dm_pos.Y.Scale, dm_pos.Y.Offset+d.Y)
-    end
+pcall(function()
+    Window:SetToggleKey(Enum.KeyCode.RightShift)
 end)
 
--- TAB SYSTEM
-local TabContainer = Instance.new("Frame", Menu)
-TabContainer.Size = UDim2.new(1, -16, 0, 32)
-TabContainer.Position = UDim2.new(0, 8, 0, 44)
-TabContainer.BackgroundTransparency = 1
+local TabMain = Window:Tab({
+    Title = "Chính",
+    Icon = "play",
+})
 
-local TabsList = Instance.new("UIListLayout", TabContainer)
-TabsList.FillDirection = Enum.FillDirection.Horizontal
-TabsList.SortOrder = Enum.SortOrder.LayoutOrder
-TabsList.Padding = UDim.new(0, 6)
+local TabConfig = Window:Tab({
+    Title = "Cài đặt",
+    Icon = "settings",
+})
 
-local tabFrames = {}
-local tabButtons = {}
+local TabFilter = Window:Tab({
+    Title = "Bộ lọc",
+    Icon = "funnel",
+})
 
-local function createTabButton(name, idx)
-    local btn = Instance.new("TextButton", TabContainer)
-    btn.Size = UDim2.new(0, 90, 1, 0)
-    btn.BackgroundColor3 = idx == 1 and C.ACCENT or C.ROW
-    btn.BorderSizePixel = 0
-    btn.Text = name
-    btn.TextColor3 = idx == 1 and Color3.new(1,1,1) or C.SUBTEXT
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.LayoutOrder = idx
-    corner(btn, 6)
-
-    local content = Instance.new("ScrollingFrame", Menu)
-    content.Size = UDim2.new(1,-16, 1,-88); content.Position = UDim2.new(0,8,0,80)
-    content.BackgroundTransparency = 1; content.BorderSizePixel = 0
-    content.ScrollBarThickness = 3; content.ScrollBarImageColor3 = C.ACCENT
-    content.Visible = (idx == 1)
-    
-    local layout = Instance.new("UIListLayout", content)
-    layout.Padding = UDim.new(0, 6)
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        content.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 10)
-    end)
-
-    tabFrames[idx] = content
-    tabButtons[idx] = btn
-
-    btn.MouseButton1Click:Connect(function()
-        for i, f in pairs(tabFrames) do
-            f.Visible = (i == idx)
-            tween(tabButtons[i], {
-                BackgroundColor3 = (i == idx) and C.ACCENT or C.ROW,
-                TextColor3 = (i == idx) and Color3.new(1,1,1) or C.SUBTEXT
-            })
-        end
-    end)
-
-    return content
-end
-
-local TabMain   = createTabButton("CHÍNH", 1)
-local TabConfig = createTabButton("CÀI ĐẶT", 2)
-local TabFilter = createTabButton("BỘ LỌC", 3)
-
-local function newRow(parent, h)
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, 0, 0, h or 36)
-    f.BackgroundColor3 = C.ROW; f.BorderSizePixel = 0
-    corner(f, 8)
-    return f
-end
-
-local function sectionTitle(parent, text)
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1,0,0,22); f.BackgroundTransparency = 1
-    local l = newLabel(f, text, 11, C.SUBTEXT)
-    l.Position = UDim2.new(0,4,0,0)
-end
-
-local function makeToggle(parent, labelText, default, onChange)
-    local row = newRow(parent, 36)
-    local lbl = newLabel(row, labelText, 12, C.TEXT)
-    lbl.Size = UDim2.new(1,-54,1,0); lbl.Position = UDim2.new(0,10,0,0)
-
-    local Track = Instance.new("Frame", row)
-    Track.Size = UDim2.new(0,36,0,20); Track.Position = UDim2.new(1,-46,0.5,-10)
-    Track.BackgroundColor3 = default and C.ACCENT or C.BORDER; Track.BorderSizePixel = 0
-    corner(Track, 10)
-
-    local Knob = Instance.new("Frame", Track)
-    Knob.Size = UDim2.new(0,16,0,16); Knob.AnchorPoint = Vector2.new(0,0.5)
-    Knob.Position = default and UDim2.new(1,-18,0.5,0) or UDim2.new(0,2,0.5,0)
-    Knob.BackgroundColor3 = Color3.new(1,1,1); Knob.BorderSizePixel = 0
-    corner(Knob, 8)
-
-    local state = default
-    local btn = Instance.new("TextButton", row)
-    btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        tween(Track, {BackgroundColor3 = state and C.ACCENT or C.BORDER})
-        tween(Knob,  {Position = state and UDim2.new(1,-18,0.5,0) or UDim2.new(0,2,0.5,0)})
-        onChange(state)
-    end)
-    return row
-end
-
-local function makeButton(parent, labelText, color, onClick)
-    local row = newRow(parent, 34)
-    row.BackgroundColor3 = color or C.ACCENT
-    local lbl = newLabel(row, labelText, 12, Color3.new(1,1,1), Enum.TextXAlignment.Center, true)
-    lbl.Size = UDim2.new(1,0,1,0)
-    local btn = Instance.new("TextButton", row)
-    btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
-    btn.MouseEnter:Connect(function() tween(row,{BackgroundColor3=(color or C.ACCENT):Lerp(Color3.new(1,1,1),0.15)}) end)
-    btn.MouseLeave:Connect(function() tween(row,{BackgroundColor3=color or C.ACCENT}) end)
-    btn.MouseButton1Click:Connect(onClick)
-    return row
-end
-
-local function makeInput(parent, labelText, placeholder, onChange)
-    local row = newRow(parent, 60)
-    local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
-    lbl.Size = UDim2.new(1,-12,0,18); lbl.Position = UDim2.new(0,10,0,4)
-
-    local box = Instance.new("TextBox", row)
-    box.Size = UDim2.new(1,-20,0,26); box.Position = UDim2.new(0,10,0,24)
-    box.BackgroundColor3 = C.PANEL; box.BorderSizePixel = 0
-    box.TextColor3 = C.TEXT; box.PlaceholderText = placeholder or ""
-    box.PlaceholderColor3 = C.SUBTEXT; box.TextSize = 12; box.Font = Enum.Font.Gotham
-    box.Text = ""; box.ClearTextOnFocus = false
-    corner(box, 6)
-    local pad = Instance.new("UIPadding", box)
-    pad.PaddingLeft = UDim.new(0,8)
-    box.FocusLost:Connect(function()
-        local val = box.Text
-        local ok = onChange(val)
-        box.Text = ""
-        box.PlaceholderText = "Hiện tại: " .. tostring(CONFIG.SellPrice)
-    end)
-    return row
-end
-
-local function makeSlider(parent, labelText, min, max, default, onChange)
-    local row = newRow(parent, 60)
-    local valDisplay = tostring(default)
-
-    local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
-    lbl.Size = UDim2.new(1,-50,0,18); lbl.Position = UDim2.new(0,10,0,4)
-
-    local valLbl = newLabel(row, valDisplay, 11, C.ACCENT, Enum.TextXAlignment.Right, true)
-    valLbl.Size = UDim2.new(0,40,0,18); valLbl.Position = UDim2.new(1,-48,0,4)
-
-    local Track = Instance.new("Frame", row)
-    Track.Size = UDim2.new(1,-20,0,6); Track.Position = UDim2.new(0,10,0,34)
-    Track.BackgroundColor3 = C.BORDER; Track.BorderSizePixel = 0; corner(Track, 3)
-
-    local Fill = Instance.new("Frame", Track)
-    Fill.BackgroundColor3 = C.ACCENT; Fill.BorderSizePixel = 0; corner(Fill, 3)
-    Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-
-    local Knob = Instance.new("Frame", Track)
-    Knob.Size = UDim2.new(0,14,0,14); Knob.AnchorPoint = Vector2.new(0.5,0.5)
-    Knob.Position = UDim2.new((default-min)/(max-min),0,0.5,0)
-    Knob.BackgroundColor3 = Color3.new(1,1,1); Knob.BorderSizePixel = 0; corner(Knob, 7)
-
-    local dragging = false
-    local function update(x)
-        local rel = math.clamp((x - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-        local val = math.round(min + rel * (max - min))
-        Fill.Size = UDim2.new(rel,0,1,0)
-        Knob.Position = UDim2.new(rel,0,0.5,0)
-        valLbl.Text = tostring(val)
-        onChange(val)
-    end
-    Track.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=true; update(i.Position.X) end
-    end)
-    Track.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=false end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-            update(UIS:GetMouseLocation().X)
-        end
-    end)
-    return row
-end
-
--- Bo chon kieu nut bam (1 2 3 4...)
-local function makeSelector(parent, labelText, options, default, onChange)
-    local row = newRow(parent, 60)
-    local lbl = newLabel(row, labelText, 11, C.SUBTEXT)
-    lbl.Size = UDim2.new(1,-12,0,18); lbl.Position = UDim2.new(0,10,0,4)
-
-    local btnContainer = Instance.new("Frame", row)
-    btnContainer.Size = UDim2.new(1,-20,0,26)
-    btnContainer.Position = UDim2.new(0,10,0,26)
-    btnContainer.BackgroundTransparency = 1
-
-    local layout = Instance.new("UIListLayout", btnContainer)
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 3)
-
-    local btns = {}
-    local n = #options
-
-    local function selectOpt(val)
-        for _, b in pairs(btns) do
-            local sel = b:GetAttribute("optval") == val
-            tween(b, {BackgroundColor3 = sel and C.ACCENT or C.ROW})
-            b.TextColor3 = sel and Color3.new(1,1,1) or C.SUBTEXT
-        end
-        onChange(val)
-    end
-
-    for idx, opt in ipairs(options) do
-        local b = Instance.new("TextButton", btnContainer)
-        b.Size = UDim2.new(1/n, -3, 1, 0)
-        b.BackgroundColor3 = (opt == default) and C.ACCENT or C.ROW
-        b.TextColor3 = (opt == default) and Color3.new(1,1,1) or C.SUBTEXT
-        b.Text = tostring(opt)
-        b.TextSize = 11
-        b.Font = Enum.Font.GothamBold
-        b.BorderSizePixel = 0
-        b.LayoutOrder = idx
-        b:SetAttribute("optval", opt)
-        corner(b, 5)
-        b.MouseButton1Click:Connect(function() selectOpt(opt) end)
-        table.insert(btns, b)
-    end
-    return row
-end
-
--- ===============================================
--- TAB: CHINH (MAIN)
-sectionTitle(TabMain, "ĐIỀU KHIỂN BÁN")
+TabMain:Section({ Title = "Điều khiển bán" })
 local isAutoOn = false
-makeToggle(TabMain, "Tự động treo bán", false, function(v)
-    if v and not listRemote then findRemote() end
-    if v and not listRemote then isAutoOn = false; return end
-    isAutoOn = v; isRunning = v
-    if v then task.spawn(runLoop) end
-end)
+TabMain:Toggle({
+    Title = "Tự động treo bán",
+    Desc = "Bật để tự động list pet",
+    Value = false,
+    Callback = function(v)
+        if v and not listRemote then findRemote() end
+        if v and not listRemote then
+            isAutoOn = false
+            return
+        end
+        isAutoOn = v
+        isRunning = v
+        if v then task.spawn(runLoop) end
+    end,
+})
 
-sectionTitle(TabMain, "HỆ THỐNG")
-makeToggle(TabMain, "🛡️ Anti-AFK", false, function(v)
-    antiAFKEnabled = v
-    print("[AutoSell] Anti-AFK:", v and "BẬT" or "TẮT")
-end)
-makeButton(TabMain, "🔍  Quét lại Remote", C.PANEL, function()
-    local ok = findRemote()
-    print("[AutoSell] Remote:", ok and listRemote:GetFullName() or "Không tìm thấy")
-end)
+TabMain:Section({ Title = "Hệ thống" })
+TabMain:Toggle({
+    Title = "Anti-AFK",
+    Desc = "Giữ nhân vật không bị AFK kick",
+    Value = false,
+    Callback = function(v)
+        antiAFKEnabled = v
+        print("[AutoSell] Anti-AFK:", v and "BẬT" or "TẮT")
+    end,
+})
 
--- ===============================================
--- TAB: CAI DAT (CONFIG)
-sectionTitle(TabConfig, "THUỘC TÍNH PET")
-makeInput(TabConfig, "Giá bán mỗi pet", "Nhập số... (vd: 5000)", function(v)
-    local n = tonumber(v)
-    if n and n > 0 then CONFIG.SellPrice = n end
-end)
+TabMain:Button({
+    Title = "Quét lại Remote",
+    Desc = "Tìm lại rf/listboothoffering",
+    Callback = function()
+        local ok = findRemote()
+        print("[AutoSell] Remote:", ok and listRemote:GetFullName() or "Không tìm thấy")
+    end,
+})
 
-makeSlider(TabConfig, "Thời gian đợi (giây)", 1, 30, 3, function(v) CONFIG.Interval = v end)
-makeSelector(TabConfig, "Thời gian chờ lại (RetryDelay)", {0.5, 1, 1.5, 2, 3}, 1, function(v) CONFIG.RetryDelay = v end)
+TabConfig:Section({ Title = "Thuộc tính pet" })
+TabConfig:Input({
+    Title = "Giá bán mỗi pet",
+    Desc = "Nhập số, ví dụ 5000",
+    Placeholder = "Nhập giá bán...",
+    Value = tostring(CONFIG.SellPrice),
+    Callback = function(v)
+        local n = tonumber(v)
+        if n and n > 0 then
+            CONFIG.SellPrice = n
+            print("[AutoSell] SellPrice =", CONFIG.SellPrice)
+        end
+    end,
+})
 
-sectionTitle(TabConfig, "TÙY CHỌN BỎ QUA")
-makeToggle(TabConfig, "Bỏ qua pet bị Khóa 🔒", true, function(v) CONFIG.SkipLocked = v end)
-makeToggle(TabConfig, "Chỉ bán Pet (không bán Gear)", true, function(v) CONFIG.OnlySellPets = v end)
+TabConfig:Slider({
+    Title = "Thời gian đợi khi quầy đầy (giây)",
+    Value = {
+        Min = 1,
+        Max = 30,
+        Default = CONFIG.Interval,
+    },
+    Callback = function(v)
+        CONFIG.Interval = tonumber(v) or CONFIG.Interval
+    end,
+})
 
--- ===============================================
--- TAB: BO LOC (FILTER)
-sectionTitle(TabFilter, "CÀI ĐẶT BỘ LỌC CẤP BẬC (RARITY)")
-makeButton(TabFilter, "Reset Cấp Bậc", C.RED, function()
-    for k in pairs(SELL_RARITIES) do SELL_RARITIES[k] = nil end
-end)
+TabConfig:Dropdown({
+    Title = "RetryDelay",
+    Desc = "Delay giữa 2 lần treo thành công",
+    Values = { "0.5", "1", "1.5", "2", "3" },
+    Value = tostring(CONFIG.RetryDelay),
+    Multi = false,
+    Callback = function(selected)
+        local picked = selected
+        if type(selected) == "table" then
+            picked = selected[1]
+        end
+        local n = tonumber(picked)
+        if n then
+            CONFIG.RetryDelay = n
+            print("[AutoSell] RetryDelay =", CONFIG.RetryDelay)
+        end
+    end,
+})
+
+TabConfig:Section({ Title = "Tùy chọn bỏ qua" })
+TabConfig:Toggle({
+    Title = "Bỏ qua pet bị khóa",
+    Value = CONFIG.SkipLocked,
+    Callback = function(v)
+        CONFIG.SkipLocked = v
+    end,
+})
+
+TabConfig:Toggle({
+    Title = "Chỉ bán pet (không bán gear)",
+    Value = CONFIG.OnlySellPets,
+    Callback = function(v)
+        CONFIG.OnlySellPets = v
+    end,
+})
+
+TabFilter:Section({ Title = "Lọc cấp bậc (Rarity)" })
+TabFilter:Button({
+    Title = "Reset Cấp Bậc",
+    Callback = function()
+        for k in pairs(SELL_RARITIES) do
+            SELL_RARITIES[k] = nil
+        end
+        print("[AutoSell] Đã reset bộ lọc Rarity")
+    end,
+})
+
 for _, r in ipairs(ALL_RARITIES) do
-    makeToggle(TabFilter, "Bán "..r, false, function(v)
-        SELL_RARITIES[r] = v and true or nil
-    end)
+    TabFilter:Toggle({
+        Title = "Bán " .. r,
+        Value = false,
+        Callback = function(v)
+            SELL_RARITIES[r] = v and true or nil
+        end,
+    })
 end
 
-sectionTitle(TabFilter, "CÀI ĐẶT BỘ LỌC ĐỘT BIẾN (MUTATION)")
-makeButton(TabFilter, "Reset Đột Biến", C.RED, function()
-    for k in pairs(SELL_MUTATIONS) do SELL_MUTATIONS[k] = nil end
-end)
+TabFilter:Section({ Title = "Lọc đột biến (Mutation)" })
+TabFilter:Button({
+    Title = "Reset Đột Biến",
+    Callback = function()
+        for k in pairs(SELL_MUTATIONS) do
+            SELL_MUTATIONS[k] = nil
+        end
+        print("[AutoSell] Đã reset bộ lọc Mutation")
+    end,
+})
+
 for _, m in ipairs(ALL_MUTATIONS) do
-    makeToggle(TabFilter, "Bán "..m, false, function(v)
-        SELL_MUTATIONS[m] = v and true or nil
-    end)
+    TabFilter:Toggle({
+        Title = "Bán " .. m,
+        Value = false,
+        Callback = function(v)
+            SELL_MUTATIONS[m] = v and true or nil
+        end,
+    })
 end
 
 -- =====================================================
--- NUT RESTORE TRAY (Vien nho)
+-- NÚT NHỎ MỞ/LẨN MENU (RESTORE BUTTON)
 -- =====================================================
-local RestoreBtn = Instance.new("TextButton", ScreenGui)
+local oldRestoreGui = PGui:FindFirstChild("AutoSellRestoreGui")
+if oldRestoreGui then
+    oldRestoreGui:Destroy()
+end
+
+local RestoreGui = Instance.new("ScreenGui")
+RestoreGui.Name = "AutoSellRestoreGui"
+RestoreGui.ResetOnSpawn = false
+RestoreGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+RestoreGui.Parent = PGui
+
+local RestoreBtn = Instance.new("TextButton")
 RestoreBtn.Name = "RestoreBtn"
-RestoreBtn.Size = UDim2.new(0, 42, 0, 42)
-RestoreBtn.Position = UDim2.new(1, -54, 0, 10)
-RestoreBtn.BackgroundColor3 = C.BG
-RestoreBtn.BorderSizePixel = 0
+RestoreBtn.Size = UDim2.fromOffset(42, 42)
+RestoreBtn.Position = UDim2.new(1, -56, 0, 10)
+RestoreBtn.AnchorPoint = Vector2.new(0, 0)
+RestoreBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 RestoreBtn.Text = "🐾"
 RestoreBtn.TextSize = 20
 RestoreBtn.Font = Enum.Font.GothamBold
-RestoreBtn.Visible = false
-corner(RestoreBtn, 8)
-local rs = Instance.new("UIStroke", RestoreBtn)
-rs.Color = C.ACCENT; rs.Thickness = 1.5
+RestoreBtn.TextColor3 = Color3.fromRGB(230, 230, 240)
+RestoreBtn.Parent = RestoreGui
 
-local dragR, ds, dp
-RestoreBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragR=true; ds=i.Position; dp=RestoreBtn.Position end
+local rbCorner = Instance.new("UICorner")
+rbCorner.CornerRadius = UDim.new(0, 10)
+rbCorner.Parent = RestoreBtn
+
+local rbStroke = Instance.new("UIStroke")
+rbStroke.Color = Color3.fromRGB(110, 90, 220)
+rbStroke.Thickness = 1.5
+rbStroke.Parent = RestoreBtn
+
+local menuVisible = true
+local function refreshRestoreBtn()
+    RestoreBtn.Visible = not menuVisible
+end
+
+local function setWindowVisible(show)
+    menuVisible = show
+    pcall(function()
+        if show then
+            Window:Open()
+        else
+            Window:Close()
+        end
+    end)
+    refreshRestoreBtn()
+end
+
+pcall(function()
+    Window:OnOpen(function()
+        menuVisible = true
+        refreshRestoreBtn()
+    end)
 end)
-RestoreBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragR=false end
+
+pcall(function()
+    Window:OnClose(function()
+        menuVisible = false
+        refreshRestoreBtn()
+    end)
 end)
-UIS.InputChanged:Connect(function(i)
-    if dragR and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - ds
-        RestoreBtn.Position = UDim2.new(dp.X.Scale, dp.X.Offset+d.X, dp.Y.Scale, dp.Y.Offset+d.Y)
+
+RestoreBtn.MouseButton1Click:Connect(function()
+    setWindowVisible(true)
+end)
+
+refreshRestoreBtn()
+
+-- Cho phép kéo nút nhỏ
+local dragging = false
+local dragStart
+local startPos
+
+RestoreBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = RestoreBtn.Position
     end
 end)
 
-local function hideMenu() Menu.Visible = false; RestoreBtn.Visible = true end
-local function showMenu() Menu.Visible = true; RestoreBtn.Visible = false end
-
-MinBtn.MouseButton1Click:Connect(hideMenu)
-RestoreBtn.MouseButton1Click:Connect(showMenu)
-
-UIS.InputBegan:Connect(function(i, gp)
-    if not gp and i.KeyCode == Enum.KeyCode.RightShift then
-        if Menu.Visible then hideMenu() else showMenu() end
+RestoreBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
     end
 end)
 
-print("[AutoSell] ✅ Script loaded | RightShift = Án/Hien menu | Đã tách tab")
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        RestoreBtn.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+print("[AutoSell] ✅ Script loaded với WindUI | RightShift hoặc nút 🐾 để ẩn/hiện menu")
